@@ -1,40 +1,66 @@
 from fastapi import APIRouter
-from app.schemas.user_schemas import RegisterUserSchema, UserSchema, LoginUserSchema, LoginUserResponseSchema
-from app.models.user_model import User
+from app.schemas.user_schema import UserCreate, UserLogin, User as UserSchema, Token
+from app.models.user_model import User, UserRole
 from app.db.base import get_db
 from sqlalchemy.orm import Session
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from app.schemas.base_schema import DataResponse
 from app.core.security import hash_password, verify_password, create_access_token
 from app.middleware.authenticate import authenticate
+import uuid
+
 router = APIRouter()
 
 
 @router.post("/register", tags=["users"], description="Register a new user", response_model=DataResponse[UserSchema])
-async def register_user(data: RegisterUserSchema, db: Session = Depends(get_db)):
-    password = hash_password(data.password)
-    user = User(name=data.name, email=data.email, password=password)
+async def register_user(data: UserCreate, db: Session = Depends(get_db)):
+    existing = db.query(User).filter(User.Email == data.Email).first()
+    if existing:
+        return DataResponse.custom_response(code="400", message="Email already exists", data=None)
+
+    password_hash = hash_password(data.Password)
+    user_id = str(uuid.uuid4())
+    
+    user = User(
+        Id=user_id,
+        FullName=data.FullName,
+        Email=data.Email,
+        UserName=data.UserName,
+        PhoneNumber=data.PhoneNumber,
+        AvatarUrl=data.AvatarUrl,
+        PasswordHash=password_hash,
+        EmailConfirmed=False,
+        TwoFactorEnabled=data.TwoFactorEnabled
+    )
     
     try:
         db.add(user)
+        db.flush() # Flush to ensure user exists before adding role if needed (though Id is pre-generated)
+        
+        # Assign default Customer role
+        CUSTOMER_ROLE_ID = "869e2ef9-ecf2-4bf6-b2d7-e32f9dc65f13"
+        user_role = UserRole(UserId=user.Id, RoleId=CUSTOMER_ROLE_ID)
+        db.add(user_role)
+        
         db.commit()
         db.refresh(user)
         return DataResponse.custom_response(code="201", message="Register user success", data=user)
     except Exception as e:
+        print(e)
         return DataResponse.custom_response(code="500", message="Register user failed", data=None)
 
 
-@router.post("/login", tags=["users"], description="Login a user", response_model=DataResponse[LoginUserResponseSchema])
-async def login_user(data: LoginUserSchema, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == data.email).first()
+@router.post("/login", tags=["users"], description="Login a user", response_model=DataResponse[Token])
+async def login_user(data: UserLogin, db: Session = Depends(get_db)): 
+    user = db.query(User).filter(User.Email == data.Email).first()
     if not user:
         return DataResponse.custom_response(code="401", message="Invalid email or password", data=None)
-    if not verify_password(data.password, user.password):
+    if not verify_password(data.Password, user.PasswordHash):
         return DataResponse.custom_response(code="401", message="Invalid email or password", data=None)
     
-    token = create_access_token(user.id)
+    token = create_access_token(user.Id)
     
-    return DataResponse.custom_response(code="200", message="Login user success", data=LoginUserResponseSchema(access_token=token, token_type="Bearer"))
+    return DataResponse.custom_response(code="200", message="Login user success", data=Token(access_token=token, token_type="Bearer"))
 
 @router.get("/me", tags=["users"], description="Get current user", response_model=DataResponse[UserSchema], dependencies=[Depends(authenticate)])
 async def get_current_user(current_user: User = Depends(authenticate)):

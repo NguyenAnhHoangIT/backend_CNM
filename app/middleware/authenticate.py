@@ -5,7 +5,7 @@ from fastapi import Depends, HTTPException
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from app.db.base import get_db
-from app.schemas.user_schemas import TokenPayload
+from app.schemas.user_schema import TokenPayload
 from app.models.user_model import User
 
 reusable_oauth = HTTPBearer(
@@ -25,7 +25,8 @@ def authenticate(http_authorization_credentials=Depends(reusable_oauth), db: Ses
             status_code=403,
             detail="credentials"
         )
-    user = db.query(User).filter(User.id == token_data.user_id).first()
+    # Updated: User.Id (case sensitive match to model)
+    user = db.query(User).filter(User.Id == token_data.user_id).first()
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

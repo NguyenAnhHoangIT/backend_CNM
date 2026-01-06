@@ -10,7 +10,7 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, hashed_password: str) -> bool:
     return pwd_context.verify(password, hashed_password)
 
-def create_access_token(user_id: int) -> str:
+def create_access_token(user_id: str) -> str:
     expired = datetime.now() + timedelta(minutes=30)
     payload = {
         "user_id": user_id,

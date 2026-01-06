@@ -44,3 +44,14 @@ Add your environment variables to the `.env` file.
 fastapi dev main.py
 ```
 
+### Activate conda environment
+
+```bash
+conda activate fastapi39
+```
+
+### Chạy
+
+```bash
+uvicorn main:app --reload --port 8080
+```
