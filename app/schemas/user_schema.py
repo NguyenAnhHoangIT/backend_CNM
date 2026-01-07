@@ -28,7 +28,9 @@ class UserInDBBase(UserBase):
     EmailConfirmed: bool = False
     PhoneNumberConfirmed: bool = False
     AccessFailedCount: int = 0
+    AccessFailedCount: int = 0
     LockoutEnd: Optional[datetime] = None
+    Status: int = 1
     
     class Config:
         from_attributes = True

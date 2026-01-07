@@ -10,6 +10,8 @@ class Category(Base):
     Name = Column(Text, nullable=False)
     Description = Column(Text, nullable=False)
     ImageUrl = Column(Text, nullable=False)
+    CreateAt = Column(DateTime(6), nullable=False, default=datetime.now)
+    Status = Column(Integer, nullable=False, default=1)
 
 class Product(Base):
     __tablename__ = "Products"
@@ -18,6 +20,7 @@ class Product(Base):
     Name = Column(Text, nullable=False)
     Description = Column(Text, nullable=False)
     CreateAt = Column(DateTime(6), nullable=False)
+    Status = Column(Integer, nullable=False, default=1)
     CategoryId = Column(Integer, ForeignKey("Categories.Id", ondelete='CASCADE'), nullable=False)
 
 class ProductImage(Base):
@@ -44,13 +47,14 @@ class ProductType(Base):
     Id = Column(Integer, primary_key=True, autoincrement=True)
     Name = Column(Text, nullable=False)
     Quantity = Column(Integer, nullable=False)
+    Status = Column(Integer, nullable=False, default=1)
     ProductLaunchId = Column(Integer, ForeignKey("ProductLaunchs.Id", ondelete='CASCADE'), nullable=False)
     ImageUrl = Column(Text, nullable=True)
     MaxPrice = Column(Numeric(18, 2), nullable=False, default=0.0)
     MinPrice = Column(Numeric(18, 2), nullable=False, default=0.0)
 
 class PriceItem(Base):
-    __tablename__ = "PriceItems"
+    __tablename__ = "PriceItem"
     
     Id = Column(Integer, primary_key=True, autoincrement=True)
     Number = Column(Integer, nullable=False)

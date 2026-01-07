@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from app.schemas.user_schema import UserCreate, UserLogin, User as UserSchema, Token
-from app.models.user_model import User, UserRole
+from app.models.user_model import User, UserRole, Role
 from app.db.base import get_db
 from sqlalchemy.orm import Session
 from fastapi import Depends, HTTPException
@@ -38,9 +38,18 @@ async def register_user(data: UserCreate, db: Session = Depends(get_db)):
         db.flush() # Flush to ensure user exists before adding role if needed (though Id is pre-generated)
         
         # Assign default Customer role
-        CUSTOMER_ROLE_ID = "869e2ef9-ecf2-4bf6-b2d7-e32f9dc65f13"
-        user_role = UserRole(UserId=user.Id, RoleId=CUSTOMER_ROLE_ID)
-        db.add(user_role)
+        customer_role = db.query(Role).filter(Role.Name == "Customer").first()
+        if customer_role:
+             user_role = UserRole(UserId=user.Id, RoleId=customer_role.Id)
+             db.add(user_role)
+        else:
+             # Fallback or log error? User request implies we should find it. 
+             # For now, let's assuming it exists as verified. 
+             # But if not, we might fail constraint or just not assign role?
+             # Better to raise error or print.
+             print("Error: Customer role not found in DB")
+             # Returning 500 might be appropriate if role is mandatory
+             raise Exception("Customer role not found")
         
         db.commit()
         db.refresh(user)

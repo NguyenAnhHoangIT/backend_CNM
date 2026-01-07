@@ -7,7 +7,11 @@ from decimal import Decimal
 class CategoryBase(BaseModel):
     Name: str
     Description: str
+    Name: str
+    Description: str
     ImageUrl: str
+    CreateAt: Optional[datetime] = None
+    Status: int = 1
 
 class CategoryCreate(CategoryBase):
     pass
@@ -22,10 +26,18 @@ class ProductBase(BaseModel):
     Name: str
     Description: str
     CreateAt: datetime
+    CreateAt: datetime
     CategoryId: int
+    Status: int = 1
 
 class ProductCreate(ProductBase):
     pass
+
+class ProductUpdate(BaseModel):
+    Name: Optional[str] = None
+    Description: Optional[str] = None
+    CategoryId: Optional[int] = None
+    Status: Optional[int] = None
 
 class Product(ProductBase):
     Id: int
@@ -63,7 +75,11 @@ class ProductTypeBase(BaseModel):
     ImageUrl: Optional[str] = None
     MaxPrice: Decimal
     MinPrice: Decimal
+    ImageUrl: Optional[str] = None
+    MaxPrice: Decimal
+    MinPrice: Decimal
     ProductLaunchId: int
+    Status: int = 1
 
 class ProductType(ProductTypeBase):
     Id: int

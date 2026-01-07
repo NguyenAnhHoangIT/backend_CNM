@@ -10,9 +10,8 @@ class Invoice(Base):
     Address = Column(Text, nullable=False)
     Status = Column(Integer, nullable=False)
     CreateAt = Column(DateTime(6), nullable=False)
-    Deposit = Column(Numeric(18, 2), nullable=False, default=0.0)
-    ToTal = Column(Numeric(18, 2), nullable=False, default=0.0)
-    PaymentCode = Column(String(255), nullable=False, default='')
+    Total = Column(Numeric(18, 2), nullable=False, default=0.0)
+    VoucherId = Column(Integer, ForeignKey("Vouchers.Id", ondelete='SET NULL'), nullable=True)
 
 class InvoiceItem(Base):
     __tablename__ = "InvoicesItem"

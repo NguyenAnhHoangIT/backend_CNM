@@ -23,6 +23,7 @@ class User(Base):
     LockoutEnd = Column(DateTime(6), nullable=True)
     LockoutEnabled = Column(Boolean, nullable=False, default=True)
     AccessFailedCount = Column(Integer, nullable=False, default=0)
+    Status = Column(Integer, nullable=False, default=1)
 
     # Relationships can be added here if needed, e.g.:
     # claims = relationship("UserClaim", back_populates="user")

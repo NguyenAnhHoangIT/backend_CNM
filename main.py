@@ -8,13 +8,13 @@ from app.routers.user_router import router as user_router_router
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
-    title="CLASS A",
-    description="UTE",
+    title="Shop",
+    description="shop",
 )
 
-app.include_router(product_router)
+app.include_router(product_router)  
 app.include_router(user_router_router)
 
 @app.get("/home")
 async def root():
-    return {"message": "Hello World class A"}
+    return {"message": "Hello shop"}
