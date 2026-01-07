@@ -5,7 +5,7 @@ from app.models import Base
 from app.routers.product_router import router as product_router
 from app.routers.user_router import router as user_router_router
 
-Base.metadata.create_all(bind=engine)
+# Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Shop",

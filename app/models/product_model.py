@@ -22,6 +22,9 @@ class Product(Base):
     CreateAt = Column(DateTime(6), nullable=False)
     Status = Column(Integer, nullable=False, default=1)
     CategoryId = Column(Integer, ForeignKey("Categories.Id", ondelete='CASCADE'), nullable=False)
+    
+    # Relationships
+    Images = relationship("ProductImage", back_populates="product", cascade="all, delete-orphan")
 
 class ProductImage(Base):
     __tablename__ = "ProductImages"
@@ -30,6 +33,8 @@ class ProductImage(Base):
     Url = Column(Text, nullable=False)
     Description = Column(Text, nullable=False)
     ProductId = Column(Integer, ForeignKey("Products.Id", ondelete='CASCADE'), nullable=False)
+    
+    product = relationship("Product", back_populates="Images")
 
 class ProductLaunch(Base):
     __tablename__ = "ProductLaunchs"

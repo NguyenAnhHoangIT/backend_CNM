@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from app.db.base import get_db
 from sqlalchemy.orm import Session
-from app.models.product_model import Product, Category
+from app.models.product_model import Product, Category, ProductImage
 from app.schemas.product_schema import Product as ProductSchema, ProductCreate, ProductUpdate
 from app.schemas.base_schema import DataResponse
 from datetime import datetime
@@ -26,6 +26,17 @@ async def create_product(data: ProductCreate, db: Session = Depends(get_db)):
     )
     try:
         db.add(db_product)
+        db.flush() # Flush to get db_product.Id
+
+        if data.Images:
+            for img in data.Images:
+                db_image = ProductImage(
+                    Url=img.Url,
+                    Description=img.Description,
+                    ProductId=db_product.Id
+                )
+                db.add(db_image)
+
         db.commit()
         db.refresh(db_product)
         return DataResponse.custom_response(code="201", message="Create product success", data=db_product)

@@ -7,8 +7,6 @@ from decimal import Decimal
 class CategoryBase(BaseModel):
     Name: str
     Description: str
-    Name: str
-    Description: str
     ImageUrl: str
     CreateAt: Optional[datetime] = None
     Status: int = 1
@@ -21,37 +19,42 @@ class Category(CategoryBase):
     class Config:
         from_attributes = True
 
+# --- Product Images ---
+class ProductImageBase(BaseModel):
+    Url: str
+    Description: str
+    ProductId: Optional[int] = None # Optional for creation within Product
+
+class ProductImageCreate(BaseModel):
+    Url: str
+    Description: str
+
+class ProductImage(ProductImageBase):
+    Id: int
+    class Config:
+        from_attributes = True
+
 # --- Products ---
 class ProductBase(BaseModel):
     Name: str
     Description: str
     CreateAt: datetime
-    CreateAt: datetime
     CategoryId: int
     Status: int = 1
 
 class ProductCreate(ProductBase):
-    pass
+    Images: Optional[List[ProductImageCreate]] = None
 
 class ProductUpdate(BaseModel):
     Name: Optional[str] = None
     Description: Optional[str] = None
     CategoryId: Optional[int] = None
     Status: Optional[int] = None
+    Images: Optional[List[ProductImageCreate]] = None
 
 class Product(ProductBase):
     Id: int
-    class Config:
-        from_attributes = True
-
-# --- Product Images ---
-class ProductImageBase(BaseModel):
-    Url: str
-    Description: str
-    ProductId: int
-
-class ProductImage(ProductImageBase):
-    Id: int
+    Images: List[ProductImage] = []
     class Config:
         from_attributes = True
 
@@ -72,9 +75,6 @@ class ProductLaunch(ProductLaunchBase):
 class ProductTypeBase(BaseModel):
     Name: str
     Quantity: int
-    ImageUrl: Optional[str] = None
-    MaxPrice: Decimal
-    MinPrice: Decimal
     ImageUrl: Optional[str] = None
     MaxPrice: Decimal
     MinPrice: Decimal
