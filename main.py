@@ -4,6 +4,10 @@ from app.db.base import engine
 from app.models import Base
 from app.routers.product_router import router as product_router
 from app.routers.user_router import router as user_router_router
+from app.routers.cart_router import router as cart_router
+from app.routers.role_router import router as role_router
+from app.routers.category_router import router as category_router
+from app.routers.invoice_router import router as invoice_router
 
 # Base.metadata.create_all(bind=engine)
 
@@ -14,6 +18,10 @@ app = FastAPI(
 
 app.include_router(product_router)  
 app.include_router(user_router_router)
+app.include_router(cart_router)
+app.include_router(role_router)
+app.include_router(category_router)
+app.include_router(invoice_router)
 
 @app.get("/home")
 async def root():

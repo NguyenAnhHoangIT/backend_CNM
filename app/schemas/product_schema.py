@@ -14,6 +14,13 @@ class CategoryBase(BaseModel):
 class CategoryCreate(CategoryBase):
     pass
 
+class CategoryUpdate(BaseModel):
+    Name: Optional[str] = None
+    Description: Optional[str] = None
+    ImageUrl: Optional[str] = None
+    Status: Optional[int] = None
+
+
 class Category(CategoryBase):
     Id: int
     class Config:
@@ -44,6 +51,7 @@ class ProductBase(BaseModel):
 
 class ProductCreate(ProductBase):
     Images: Optional[List[ProductImageCreate]] = None
+    ProductTypes: List["ProductTypeCreate"] = Field(..., min_length=1)
 
 class ProductUpdate(BaseModel):
     Name: Optional[str] = None
@@ -55,34 +63,28 @@ class ProductUpdate(BaseModel):
 class Product(ProductBase):
     Id: int
     Images: List[ProductImage] = []
+    ProductTypes: List["ProductType"] = []
     class Config:
         from_attributes = True
 
-# --- Product Launchs ---
-class ProductLaunchBase(BaseModel):
-    Name: str
-    Description: str
-    DateStart: datetime
-    DateEnd: datetime
-    ProductId: int
-
-class ProductLaunch(ProductLaunchBase):
-    Id: int
-    class Config:
-        from_attributes = True
 
 # --- Product Types ---
 class ProductTypeBase(BaseModel):
     Name: str
     Quantity: int
     ImageUrl: Optional[str] = None
-    MaxPrice: Decimal
-    MinPrice: Decimal
-    ProductLaunchId: int
+    ProductId: int
     Status: int = 1
+
+class ProductTypeCreate(BaseModel):
+    Name: str
+    Quantity: int
+    ImageUrl: Optional[str] = None
+    PriceItem: "PriceItemCreate"
 
 class ProductType(ProductTypeBase):
     Id: int
+    PriceItem: Optional["PriceItem"] = None
     class Config:
         from_attributes = True
 
@@ -92,6 +94,10 @@ class PriceItemBase(BaseModel):
     Price: Decimal
     ProductTypeId: int
 
+class PriceItemCreate(BaseModel):
+    Number: int
+    Price: Decimal
+    
 class PriceItem(PriceItemBase):
     Id: int
     class Config:

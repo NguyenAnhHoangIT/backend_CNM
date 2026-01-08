@@ -12,6 +12,10 @@ class Invoice(Base):
     CreateAt = Column(DateTime(6), nullable=False)
     Total = Column(Numeric(18, 2), nullable=False, default=0.0)
     VoucherId = Column(Integer, ForeignKey("Vouchers.Id", ondelete='SET NULL'), nullable=True)
+    
+    VoucherId = Column(Integer, ForeignKey("Vouchers.Id", ondelete='SET NULL'), nullable=True)
+    
+    Items = relationship("InvoiceItem", backref="invoice")
 
 class InvoiceItem(Base):
     __tablename__ = "InvoicesItem"

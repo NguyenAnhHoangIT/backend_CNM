@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends
+from app.middleware.authenticate import authenticate
 from app.db.base import get_db
-from sqlalchemy.orm import Session
-from app.models.product_model import Product, Category, ProductImage
+from app.db.base import get_db
+from sqlalchemy.orm import Session, joinedload
+from app.models.product_model import Product, Category, ProductImage, ProductType, PriceItem
 from app.schemas.product_schema import Product as ProductSchema, ProductCreate, ProductUpdate
 from app.schemas.base_schema import DataResponse
 from datetime import datetime
@@ -10,12 +12,21 @@ router = APIRouter()
 
 @router.get("/products", tags=["products"], description="Get all products", response_model=DataResponse[list[ProductSchema]])
 async def get_products(db: Session = Depends(get_db)):
-    products = db.query(Product).all()
+    products = db.query(Product).options(joinedload(Product.ProductTypes).joinedload(ProductType.price_item), joinedload(Product.Images)).all()
     # Pydantic with from_attributes=True should handle getting PascalCase fields from Model and outputting PascalCase JSON
     return DataResponse.custom_response(code="200", message="get list products", data=products)
 
+# ... (create_product remains same, manual add works)
+
+@router.get("/products/{product_id}", tags=["products"], description="Get a product by id", response_model=DataResponse[ProductSchema])
+def get_product(product_id: int, db: Session = Depends(get_db)):
+    product = db.query(Product).options(joinedload(Product.ProductTypes).joinedload(ProductType.price_item), joinedload(Product.Images)).filter(Product.Id == product_id).first()
+    if not product:
+        return DataResponse.custom_response(code="404", message="Product not found", data=None)
+    return DataResponse.custom_response(code="200", message="Get product by id", data=product)
+
 @router.post("/products", tags=["products"], description="Create a new product", response_model=DataResponse[ProductSchema])
-async def create_product(data: ProductCreate, db: Session = Depends(get_db)):
+async def create_product(data: ProductCreate, db: Session = Depends(get_db), user: dict = Depends(authenticate)):
     # Accessing PascalCase fields from data
     db_product = Product(
         Name=data.Name,
@@ -36,6 +47,27 @@ async def create_product(data: ProductCreate, db: Session = Depends(get_db)):
                     ProductId=db_product.Id
                 )
                 db.add(db_image)
+        
+        if data.ProductTypes:
+            for pt in data.ProductTypes:
+                db_product_type = ProductType(
+                    Name=pt.Name,
+                    Quantity=pt.Quantity,
+                    ImageUrl=pt.ImageUrl,
+                    ProductId=db_product.Id,
+                    Status=1 # Default status
+                )
+                db.add(db_product_type)
+                db.flush() # Flush to get db_product_type.Id
+                
+                # Create associated PriceItem
+                if pt.PriceItem:
+                    db_price_item = PriceItem(
+                        Number=pt.PriceItem.Number,
+                        Price=pt.PriceItem.Price,
+                        ProductTypeId=db_product_type.Id
+                    )
+                    db.add(db_price_item)
 
         db.commit()
         db.refresh(db_product)
@@ -52,7 +84,7 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
     return DataResponse.custom_response(code="200", message="Get product by id", data=product)
 
 @router.put("/products/{product_id}", tags=["products"], description="Update a product by id", response_model=DataResponse[ProductSchema])
-async def update_product(product_id: int, data: ProductUpdate, db: Session = Depends(get_db)):
+async def update_product(product_id: int, data: ProductUpdate, db: Session = Depends(get_db), user: dict = Depends(authenticate)):
     product = db.query(Product).filter(Product.Id == product_id).first()
     if not product:
         return DataResponse.custom_response(code="404", message="Product not found", data=None)
@@ -75,7 +107,7 @@ async def update_product(product_id: int, data: ProductUpdate, db: Session = Dep
         return DataResponse.custom_response(code="500", message="Update product failed", data=None)
 
 @router.delete("/products/{product_id}", tags=["products"], description="Delete a product by id", response_model=DataResponse[ProductSchema])
-def delete_product(product_id: int, db: Session = Depends(get_db)):
+def delete_product(product_id: int, db: Session = Depends(get_db), user: dict = Depends(authenticate)):
     product = db.query(Product).filter(Product.Id == product_id).first()
     if not product:
         return DataResponse.custom_response(code="404", message="Product not found", data=None)

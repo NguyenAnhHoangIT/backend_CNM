@@ -25,9 +25,12 @@ class User(Base):
     AccessFailedCount = Column(Integer, nullable=False, default=0)
     Status = Column(Integer, nullable=False, default=1)
 
-    # Relationships can be added here if needed, e.g.:
-    # claims = relationship("UserClaim", back_populates="user")
-    # roles = relationship("UserRole", back_populates="user")
+    # Relationships
+    claims = relationship("UserClaim", back_populates="user")
+    roles = relationship("Role", secondary="UserRoles", back_populates="users")
+    
+    # helper for UserRole model access if needed
+    user_roles = relationship("UserRole", back_populates="user")
     
 class Role(Base):
     __tablename__ = "Roles"
@@ -36,6 +39,8 @@ class Role(Base):
     Name = Column(String(256), nullable=True)
     NormalizedName = Column(String(256), nullable=True)
     ConcurrencyStamp = Column(Text, nullable=True)
+    
+    users = relationship("User", secondary="UserRoles", back_populates="roles")
 
 class UserClaim(Base):
     __tablename__ = "UserClaims"
@@ -44,12 +49,17 @@ class UserClaim(Base):
     UserId = Column(String(255), ForeignKey("Users.Id", ondelete='CASCADE'), nullable=False)
     ClaimType = Column(Text, nullable=True)
     ClaimValue = Column(Text, nullable=True)
+    
+    user = relationship("User", back_populates="claims")
 
 class UserRole(Base):
     __tablename__ = "UserRoles"
     
     UserId = Column(String(255), ForeignKey("Users.Id", ondelete='CASCADE'), primary_key=True)
     RoleId = Column(String(255), ForeignKey("Roles.Id", ondelete='CASCADE'), primary_key=True)
+    
+    user = relationship("User", back_populates="user_roles")
+    role = relationship("Role")
 
 class UserToken(Base):
     __tablename__ = "UserTokens"

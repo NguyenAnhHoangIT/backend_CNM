@@ -19,20 +19,19 @@ class InvoiceItem(InvoiceItemBase):
 
 # --- Invoices ---
 class InvoiceBase(BaseModel):
-    UserId: str
     Address: str
-    Status: int
-    CreateAt: datetime
-    Deposit: Decimal
-    Total: Decimal # Note: Model has ToTal but schema conventionally Total or match exactly? SQL says ToTal. Let's use ToTal to be safe or map it.
-    # Re-checking model: ToTal. adhering to model.
-    PaymentCode: str
+    Status: int = 1
+    CreateAt: Optional[datetime] = None
+    Total: Decimal = Decimal(0)
+    VoucherId: Optional[int] = None
 
-class InvoiceCreate(InvoiceBase):
-    Items: List[InvoiceItemCreate]
+class InvoiceCreate(BaseModel):
+    Address: str
+    VoucherId: Optional[int] = None
 
 class Invoice(InvoiceBase):
     Id: int
+    UserId: str
     Items: List[InvoiceItem] = []
     class Config:
         from_attributes = True

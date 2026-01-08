@@ -36,15 +36,6 @@ class ProductImage(Base):
     
     product = relationship("Product", back_populates="Images")
 
-class ProductLaunch(Base):
-    __tablename__ = "ProductLaunchs"
-    
-    Id = Column(Integer, primary_key=True, autoincrement=True)
-    Name = Column(Text, nullable=False)
-    Description = Column(Text, nullable=False)
-    DateStart = Column(DateTime(6), nullable=False)
-    DateEnd = Column(DateTime(6), nullable=False)
-    ProductId = Column(Integer, ForeignKey("Products.Id", ondelete='CASCADE'), nullable=False, default=0)
 
 class ProductType(Base):
     __tablename__ = "ProductTypes"
@@ -53,10 +44,11 @@ class ProductType(Base):
     Name = Column(Text, nullable=False)
     Quantity = Column(Integer, nullable=False)
     Status = Column(Integer, nullable=False, default=1)
-    ProductLaunchId = Column(Integer, ForeignKey("ProductLaunchs.Id", ondelete='CASCADE'), nullable=False)
+    ProductId = Column(Integer, ForeignKey("Products.Id", ondelete='CASCADE'), nullable=False)
     ImageUrl = Column(Text, nullable=True)
-    MaxPrice = Column(Numeric(18, 2), nullable=False, default=0.0)
-    MinPrice = Column(Numeric(18, 2), nullable=False, default=0.0)
+    
+    product = relationship("Product")
+    price_item = relationship("PriceItem", uselist=False, backref="product_type")
 
 class PriceItem(Base):
     __tablename__ = "PriceItem"
