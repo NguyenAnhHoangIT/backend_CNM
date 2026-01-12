@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form
 from sqlalchemy.orm import Session
 from app.db.base import get_db
 from app.middleware.authenticate import authenticate
@@ -6,6 +6,8 @@ from app.models.product_model import Category
 from app.schemas.product_schema import Category as CategorySchema, CategoryCreate, CategoryUpdate
 from app.schemas.base_schema import DataResponse
 from datetime import datetime
+from typing import Optional
+import cloudinary.uploader
 
 router = APIRouter(
     prefix="/categories",
@@ -18,16 +20,26 @@ async def get_categories(db: Session = Depends(get_db)):
     return DataResponse.custom_response(code="200", message="Get categories success", data=categories)
 
 @router.post("", description="Create a new category", response_model=DataResponse[CategorySchema], dependencies=[Depends(authenticate)])
-async def create_category(data: CategoryCreate, db: Session = Depends(get_db)):
-    db_category = Category(
-        Name=data.Name,
-        Description=data.Description,
-        ImageUrl=data.ImageUrl,
-        CreateAt=datetime.now(),
-        Status=data.Status if data.Status else 1
-    )
-    db.add(db_category)
+async def create_category(
+    Name: str = Form(...),
+    Description: str = Form(...),
+    Status: int = Form(1),
+    Image: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
     try:
+        # Upload image to Cloudinary
+        upload_result = cloudinary.uploader.upload(Image.file, folder="categories")
+        image_url = upload_result.get("secure_url")
+
+        db_category = Category(
+            Name=Name,
+            Description=Description,
+            ImageUrl=image_url,
+            CreateAt=datetime.now(),
+            Status=Status
+        )
+        db.add(db_category)
         db.commit()
         db.refresh(db_category)
         return DataResponse.custom_response(code="201", message="Create category success", data=db_category)
@@ -36,20 +48,33 @@ async def create_category(data: CategoryCreate, db: Session = Depends(get_db)):
         return DataResponse.custom_response(code="500", message="Create category failed", data=None)
 
 @router.put("/{category_id}", description="Update a category", response_model=DataResponse[CategorySchema], dependencies=[Depends(authenticate)])
-async def update_category(category_id: int, data: CategoryUpdate, db: Session = Depends(get_db)):
+async def update_category(
+    category_id: int, 
+    Name: Optional[str] = Form(None),
+    Description: Optional[str] = Form(None),
+    Status: Optional[int] = Form(None),
+    Image: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db)
+):
     category = db.query(Category).filter(Category.Id == category_id).first()
     if not category:
         return DataResponse.custom_response(code="404", message="Category not found", data=None)
     
-    if data.Name is not None:
-        category.Name = data.Name
-    if data.Description is not None:
-        category.Description = data.Description
-    if data.ImageUrl is not None:
-        category.ImageUrl = data.ImageUrl
-    if data.Status is not None:
-        category.Status = data.Status
+    if Name is not None:
+        category.Name = Name
+    if Description is not None:
+        category.Description = Description
+    if Status is not None:
+        category.Status = Status
         
+    if Image:
+        try:
+            upload_result = cloudinary.uploader.upload(Image.file, folder="categories")
+            category.ImageUrl = upload_result.get("secure_url")
+        except Exception as e:
+             print(f"Error uploading image: {e}")
+             return DataResponse.custom_response(code="500", message="Failed to upload image", data=None)
+
     try:
         db.commit()
         db.refresh(category)
