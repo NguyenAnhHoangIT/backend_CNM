@@ -27,7 +27,7 @@ class User(Base):
 
     # Relationships
     claims = relationship("UserClaim", back_populates="user")
-    roles = relationship("Role", secondary="UserRoles", back_populates="users")
+    Roles = relationship("Role", secondary="UserRoles", back_populates="users")
     
     # helper for UserRole model access if needed
     user_roles = relationship("UserRole", back_populates="user")
@@ -40,7 +40,7 @@ class Role(Base):
     NormalizedName = Column(String(256), nullable=True)
     ConcurrencyStamp = Column(Text, nullable=True)
     
-    users = relationship("User", secondary="UserRoles", back_populates="roles")
+    users = relationship("User", secondary="UserRoles", back_populates="Roles")
 
 class UserClaim(Base):
     __tablename__ = "UserClaims"

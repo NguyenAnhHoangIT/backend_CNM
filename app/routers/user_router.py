@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.schemas.user_schema import UserCreate, UserLogin, User as UserSchema, Token
+from app.schemas.user_schema import UserCreate, UserLogin, User as UserSchema, Token, UserMeResponse
 from app.models.user_model import User, UserRole, Role
 from app.db.base import get_db
 from sqlalchemy.orm import Session
@@ -26,11 +26,9 @@ async def register_user(data: UserCreate, db: Session = Depends(get_db)):
         FullName=data.FullName,
         Email=data.Email,
         UserName=data.UserName,
-        PhoneNumber=data.PhoneNumber,
-        AvatarUrl=data.AvatarUrl,
         PasswordHash=password_hash,
         EmailConfirmed=False,
-        TwoFactorEnabled=data.TwoFactorEnabled
+        # Default others
     )
     
     try:
@@ -71,6 +69,6 @@ async def login_user(data: UserLogin, db: Session = Depends(get_db)):
     
     return DataResponse.custom_response(code="200", message="Login user success", data=Token(access_token=token, token_type="Bearer"))
 
-@router.get("/me", tags=["users"], description="Get current user", response_model=DataResponse[UserSchema], dependencies=[Depends(authenticate)])
+@router.get("/me", tags=["users"], description="Get current user", response_model=DataResponse[UserMeResponse], dependencies=[Depends(authenticate)])
 async def get_current_user(current_user: User = Depends(authenticate)):
     return DataResponse.custom_response(code="200", message="Get current user success", data=current_user)

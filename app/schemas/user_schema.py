@@ -7,10 +7,6 @@ class UserBase(BaseModel):
     FullName: str
     UserName: Optional[str] = None
     Email: Optional[str] = None # EmailStr? keeping simple for now
-    PhoneNumber: Optional[str] = None
-    AvatarUrl: Optional[str] = None
-    TwoFactorEnabled: bool = False
-    LockoutEnabled: bool = True
 
 class UserCreate(UserBase):
     Password: str
@@ -36,7 +32,16 @@ class UserInDBBase(UserBase):
         from_attributes = True
 
 class User(UserInDBBase):
-    pass
+    Roles: List["Role"] = []
+
+class UserMeResponse(BaseModel):
+    FullName: str
+    UserName: Optional[str] = None
+    Email: Optional[str] = None
+    PhoneNumber: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
 
 class RoleBase(BaseModel):
     Name: str
