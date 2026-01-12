@@ -25,6 +25,7 @@ class Product(Base):
     
     # Relationships
     Images = relationship("ProductImage", back_populates="product", cascade="all, delete-orphan")
+    ProductTypes = relationship("ProductType", back_populates="product", cascade="all, delete-orphan")
 
 class ProductImage(Base):
     __tablename__ = "ProductImages"
@@ -47,8 +48,8 @@ class ProductType(Base):
     ProductId = Column(Integer, ForeignKey("Products.Id", ondelete='CASCADE'), nullable=False)
     ImageUrl = Column(Text, nullable=True)
     
-    product = relationship("Product")
-    price_item = relationship("PriceItem", uselist=False, backref="product_type")
+    product = relationship("Product", back_populates="ProductTypes")
+    price_item = relationship("PriceItem", uselist=False, backref="product_type", cascade="all, delete-orphan")
 
 class PriceItem(Base):
     __tablename__ = "PriceItem"

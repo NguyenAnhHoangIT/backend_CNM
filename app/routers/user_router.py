@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.schemas.user_schema import UserCreate, UserLogin, User as UserSchema, Token, UserMeResponse
+from app.schemas.user_schema import UserCreate, UserLogin, User as UserSchema, Token, UserMeResponse, UserLoginResponse
 from app.models.user_model import User, UserRole, Role
 from app.db.base import get_db
 from sqlalchemy.orm import Session, joinedload
@@ -57,9 +57,10 @@ async def register_user(data: UserCreate, db: Session = Depends(get_db)):
         return DataResponse.custom_response(code="500", message="Register user failed", data=None)
 
 
-@router.post("/login", tags=["users"], description="Login a user", response_model=DataResponse[Token])
+@router.post("/login", tags=["users"], description="Login a user", response_model=DataResponse[UserLoginResponse])
 async def login_user(data: UserLogin, db: Session = Depends(get_db)): 
-    user = db.query(User).filter(User.Email == data.Email).first()
+    # Eager load Roles for response
+    user = db.query(User).options(joinedload(User.Roles)).filter(User.Email == data.Email).first()
     if not user:
         return DataResponse.custom_response(code="401", message="Invalid email or password", data=None)
     if not verify_password(data.Password, user.PasswordHash):
@@ -67,7 +68,22 @@ async def login_user(data: UserLogin, db: Session = Depends(get_db)):
     
     token = create_access_token(user.Id)
     
-    return DataResponse.custom_response(code="200", message="Login user success", data=Token(access_token=token, token_type="Bearer"))
+    # Get primary role name
+    role_name = user.Roles[0].Name if user.Roles else None
+    
+    return DataResponse.custom_response(
+        code="200", 
+        message="Login user success", 
+        data=UserLoginResponse(
+            access_token=token, 
+            token_type="Bearer",
+            UserName=user.UserName,
+            FullName=user.FullName,
+            Email=user.Email,
+            Role=role_name,
+            AvatarUrl=user.AvatarUrl
+        )
+    )
 
 @router.get("/me", tags=["users"], description="Get current user", response_model=DataResponse[UserMeResponse], dependencies=[Depends(authenticate)])
 async def get_current_user(current_user: User = Depends(authenticate)):

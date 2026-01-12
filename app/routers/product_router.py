@@ -60,11 +60,11 @@ async def create_product(data: ProductCreate, db: Session = Depends(get_db), use
                 db.add(db_product_type)
                 db.flush() # Flush to get db_product_type.Id
                 
-                # Create associated PriceItem
-                if pt.PriceItem:
+                # Create associated PriceItem (Single)
+                if pt.Price and pt.Number:
                     db_price_item = PriceItem(
-                        Number=pt.PriceItem.Number,
-                        Price=pt.PriceItem.Price,
+                        Number=pt.Number,
+                        Price=pt.Price,
                         ProductTypeId=db_product_type.Id
                     )
                     db.add(db_price_item)
@@ -76,12 +76,7 @@ async def create_product(data: ProductCreate, db: Session = Depends(get_db), use
         print(f"Error: {e}")
         return DataResponse.custom_response(code="500", message="Create product failed", data=None)
 
-@router.get("/products/{product_id}", tags=["products"], description="Get a product by id", response_model=DataResponse[ProductSchema])
-def get_product(product_id: int, db: Session = Depends(get_db)):
-    product = db.query(Product).filter(Product.Id == product_id).first()
-    if not product:
-        return DataResponse.custom_response(code="404", message="Product not found", data=None)
-    return DataResponse.custom_response(code="200", message="Get product by id", data=product)
+
 
 @router.put("/products/{product_id}", tags=["products"], description="Update a product by id", response_model=DataResponse[ProductSchema])
 async def update_product(product_id: int, data: ProductUpdate, db: Session = Depends(get_db), user: dict = Depends(authenticate)):

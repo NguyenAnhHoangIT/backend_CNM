@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List
+from pydantic import BaseModel, Field, model_validator
+from typing import Optional, List, Any
 from datetime import datetime
 from decimal import Decimal
 
@@ -80,11 +80,27 @@ class ProductTypeCreate(BaseModel):
     Name: str
     Quantity: int
     ImageUrl: Optional[str] = None
-    PriceItem: "PriceItemCreate"
+    Price: Decimal
+    Number: int
 
 class ProductType(ProductTypeBase):
     Id: int
-    PriceItem: Optional["PriceItem"] = None
+    Price: Optional[Decimal] = None
+    Number: Optional[int] = None
+
+    @model_validator(mode='before')
+    @classmethod
+    def flatten_price_item(cls, data: Any) -> Any:
+        # Check if data is an ORM object or dict
+        if hasattr(data, 'price_item') and data.price_item:
+            # Flatten fields from related object
+            data.Price = data.price_item.Price
+            data.Number = data.price_item.Number
+        elif isinstance(data, dict):
+            # If dict (e.g. from input or testing), check for nested key (unlikely in this direction but good for robustness)
+            pass
+        return data
+
     class Config:
         from_attributes = True
 

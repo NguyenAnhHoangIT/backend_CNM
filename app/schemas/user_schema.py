@@ -39,6 +39,7 @@ class UserMeResponse(BaseModel):
     UserName: Optional[str] = None
     Email: Optional[str] = None
     PhoneNumber: Optional[str] = None
+    AvatarUrl: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -57,6 +58,13 @@ class Role(RoleBase):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+class UserLoginResponse(Token):
+    UserName: Optional[str] = None
+    FullName: str
+    Email: Optional[str] = None
+    Role: Optional[str] = None
+    AvatarUrl: Optional[str] = None
 
 class TokenData(BaseModel):
     username: Optional[str] = None
