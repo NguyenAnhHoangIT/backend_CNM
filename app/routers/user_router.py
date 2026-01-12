@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from app.schemas.user_schema import UserCreate, UserLogin, User as UserSchema, Token, UserMeResponse
 from app.models.user_model import User, UserRole, Role
 from app.db.base import get_db
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from fastapi import Depends, HTTPException
 from app.schemas.base_schema import DataResponse
 from app.core.security import hash_password, verify_password, create_access_token
@@ -72,3 +72,8 @@ async def login_user(data: UserLogin, db: Session = Depends(get_db)):
 @router.get("/me", tags=["users"], description="Get current user", response_model=DataResponse[UserMeResponse], dependencies=[Depends(authenticate)])
 async def get_current_user(current_user: User = Depends(authenticate)):
     return DataResponse.custom_response(code="200", message="Get current user success", data=current_user)
+
+@router.get("/users", tags=["users"], description="Get all users", response_model=DataResponse[list[UserSchema]], dependencies=[Depends(authenticate)])
+async def get_all_users(db: Session = Depends(get_db)):
+    users = db.query(User).options(joinedload(User.Roles)).all()
+    return DataResponse.custom_response(code="200", message="Get all users success", data=users)
