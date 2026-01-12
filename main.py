@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.db.base import get_db
 from app.db.base import engine
 from app.models import Base
@@ -14,6 +15,14 @@ from app.routers.invoice_router import router as invoice_router
 app = FastAPI(
     title="Shop",
     description="shop",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(product_router)  
