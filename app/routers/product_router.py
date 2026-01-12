@@ -11,8 +11,9 @@ from datetime import datetime
 router = APIRouter()
 
 @router.get("/products", tags=["products"], description="Get all products", response_model=DataResponse[list[ProductSchema]])
-async def get_products(db: Session = Depends(get_db)):
-    products = db.query(Product).options(joinedload(Product.ProductTypes).joinedload(ProductType.price_item), joinedload(Product.Images)).all()
+async def get_products(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
+    skip = (page - 1) * limit
+    products = db.query(Product).options(joinedload(Product.ProductTypes).joinedload(ProductType.price_item), joinedload(Product.Images)).offset(skip).limit(limit).all()
     # Pydantic with from_attributes=True should handle getting PascalCase fields from Model and outputting PascalCase JSON
     return DataResponse.custom_response(code="200", message="get list products", data=products)
 

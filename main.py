@@ -9,6 +9,7 @@ from app.routers.cart_router import router as cart_router
 from app.routers.role_router import router as role_router
 from app.routers.category_router import router as category_router
 from app.routers.invoice_router import router as invoice_router
+from app.routers.voucher_router import router as voucher_router
 
 # Base.metadata.create_all(bind=engine)
 
@@ -31,6 +32,7 @@ app.include_router(cart_router)
 app.include_router(role_router)
 app.include_router(category_router)
 app.include_router(invoice_router)
+app.include_router(voucher_router)
 
 @app.get("/home")
 async def root():

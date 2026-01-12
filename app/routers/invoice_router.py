@@ -5,6 +5,7 @@ from app.middleware.authenticate import authenticate
 from app.models.invoice_model import Invoice, InvoiceItem
 from app.models.cart_model import Cart, CartItem
 from app.models.product_model import ProductType
+from app.models.voucher_model import Voucher
 from app.schemas.invoice_schema import Invoice as InvoiceSchema, InvoiceCreate
 from app.schemas.base_schema import DataResponse
 from datetime import datetime
@@ -69,14 +70,25 @@ async def create_invoice(data: InvoiceCreate, db: Session = Depends(get_db), use
             "Amount": amount
         })
 
+    # Resolving VoucherId from VoucherName
+    voucher_id = None
+    if data.VoucherName:
+        voucher = db.query(Voucher).filter(Voucher.Name == data.VoucherName).first()
+        if not voucher:
+             return DataResponse.custom_response(code="400", message=f"Voucher '{data.VoucherName}' not found", data=None)
+        # Optional: Check validity? (Date, Status, usage count)
+        if voucher.Status != 1: 
+             return DataResponse.custom_response(code="400", message="Voucher is inactive", data=None)
+        voucher_id = voucher.Id
+
     # 3. Create Invoice
     new_invoice = Invoice(
         UserId=user.Id,
         Address=data.Address,
-        Status=1, # 1: Pending/Paid? Let's say 1=Created
+        Status=1, 
         CreateAt=datetime.now(),
         Total=total_amount,
-        VoucherId=data.VoucherId
+        VoucherId=voucher_id
     )
     db.add(new_invoice)
     db.flush() # Get Id

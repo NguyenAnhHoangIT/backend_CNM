@@ -27,7 +27,9 @@ class InvoiceBase(BaseModel):
 
 class InvoiceCreate(BaseModel):
     Address: str
-    VoucherId: Optional[int] = None
+class InvoiceCreate(BaseModel):
+    Address: str
+    VoucherName: Optional[str] = None
 
 class Invoice(InvoiceBase):
     Id: int
