@@ -45,3 +45,6 @@ class Invoice(InvoiceBase):
     Items: List[InvoiceItem] = []
     class Config:
         from_attributes = True
+
+class InvoiceCreateResponse(Invoice):
+    ClientSecret: str

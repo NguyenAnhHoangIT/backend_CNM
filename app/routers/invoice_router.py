@@ -6,7 +6,7 @@ from app.models.invoice_model import Invoice, InvoiceItem
 from app.models.cart_model import Cart, CartItem
 from app.models.product_model import ProductType
 from app.models.voucher_model import Voucher
-from app.schemas.invoice_schema import Invoice as InvoiceSchema, InvoiceCreate, InvoiceAdminUpdate
+from app.schemas.invoice_schema import Invoice as InvoiceSchema, InvoiceCreate, InvoiceAdminUpdate, InvoiceCreateResponse
 from app.schemas.base_schema import DataResponse
 from app.core.config import settings
 from datetime import datetime
@@ -22,7 +22,7 @@ router = APIRouter(
     dependencies=[Depends(authenticate)]
 )
 
-@router.post("", description="Create invoice (Checkout)", response_model=DataResponse[InvoiceSchema])
+@router.post("", description="Create invoice (Checkout)", response_model=DataResponse[InvoiceCreateResponse])
 async def create_invoice(data: InvoiceCreate, db: Session = Depends(get_db), user: dict = Depends(authenticate)):
     # 1. Start Transaction (Implicit in Session)
     
@@ -123,7 +123,14 @@ async def create_invoice(data: InvoiceCreate, db: Session = Depends(get_db), use
     try:
         db.commit()
         db.refresh(new_invoice)
-        return DataResponse.custom_response(code="201", message="Create invoice success", data=new_invoice)
+        
+        # Create response with client_secret
+        invoice_response = InvoiceCreateResponse(
+            **new_invoice.__dict__,
+            ClientSecret=payment_intent.client_secret
+        )
+        
+        return DataResponse.custom_response(code="201", message="Create invoice success", data=invoice_response)
     except Exception as e:
         print(f"Error creating invoice: {e}")
         db.rollback()
