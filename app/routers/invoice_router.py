@@ -50,8 +50,8 @@ async def create_invoice(data: InvoiceCreate, db: Session = Depends(get_db), use
     # 3. Create Stripe Payment Intent
     try:
         payment_intent = stripe.PaymentIntent.create(
-            amount=int(total * 100),
-            currency="usd",
+            amount=int(total),
+            currency="vnd",
             metadata={
                 "user_id": user.Id,
                 "address": data.Address
