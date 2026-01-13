@@ -9,8 +9,10 @@ class InvoiceItemBase(BaseModel):
     Quantity: int
     Amount: Decimal
 
-class InvoiceItemCreate(InvoiceItemBase):
-    pass
+class InvoiceItemCreate(BaseModel):
+    ProductTypeId: int
+    Quantity: int
+    Amount: Decimal
 
 class InvoiceItem(InvoiceItemBase):
     InvoiceId: int
@@ -31,9 +33,9 @@ class InvoiceAdminUpdate(BaseModel):
 
 class InvoiceCreate(BaseModel):
     Address: str
-class InvoiceCreate(BaseModel):
-    Address: str
-    VoucherName: Optional[str] = None
+    Total: Decimal
+    VoucherId: Optional[int] = None
+    Items: List[InvoiceItemCreate]
 
 class Invoice(InvoiceBase):
     Id: int

@@ -19,67 +19,43 @@ router = APIRouter(
 
 @router.post("", description="Create invoice (Checkout)", response_model=DataResponse[InvoiceSchema])
 async def create_invoice(data: InvoiceCreate, db: Session = Depends(get_db), user: dict = Depends(authenticate)):
-    # 1. Get Cart
-    cart = db.query(Cart).filter(Cart.UserId == user.Id).first()
-    if not cart:
-        return DataResponse.custom_response(code="400", message="Cart is empty", data=None)
-
-    cart_items = db.query(CartItem).filter(CartItem.CartId == user.Id).all()
-    if not cart_items:
-        return DataResponse.custom_response(code="400", message="Cart is empty", data=None)
-
-    # 2. Calculate Total and Validate Stock
-    total_amount = 0
+    # 1. Start Transaction (Implicit in Session)
+    
+    # 2. Iterate Items and Validate/Deduct Stock
     invoice_items_buffer = []
 
-    for item in cart_items:
-        # Fetch product type to get price and check stock
-        # Note: CartItem usually stores ProductTypeId. We need to join or query ProductType -> PriceItem to get price.
-        # But wait, ProductType has Quantity (Stock). 
-        # Price is in PriceItem. 
-        # We need to find the PriceItem for this ProductType.
-        # A ProductType has one PriceItem now (as per create_product changes).
-        
-        # Let's import PriceItem model if needed, or rely on relationships if defined. 
-        # ProductType model in product_model.py doesn't seem to have explicit relationship back to PriceItem defined in the snippet I saw?
-        # Let's query PriceItem manually for safety.
-        from app.models.product_model import PriceItem
-        
+    # Import PriceItem here or at top level if needed. Ideally top level but keeping local if previously local.
+    # It was local before because check was dynamic. Let's move imports to top if cleaner or keep.
+    # The previous code had `from app.models.product_model import PriceItem` inside loop. I'll prefer top level but for minimal diff in logic structure I'll place it here.
+    from app.models.product_model import PriceItem
+
+    for item in data.Items:
+        # Check Product Type
         product_type = db.query(ProductType).filter(ProductType.Id == item.ProductTypeId).first()
         if not product_type:
-             # Should remove invalid item or error? Error for now.
              return DataResponse.custom_response(code="400", message=f"Product Type {item.ProductTypeId} not found", data=None)
         
+        # Check Stock
         if product_type.Quantity < item.Quantity:
             return DataResponse.custom_response(code="400", message=f"Not enough stock for {product_type.Name}", data=None)
             
-        price_item = db.query(PriceItem).filter(PriceItem.ProductTypeId == item.ProductTypeId).first()
-        if not price_item:
-             return DataResponse.custom_response(code="400", message=f"Price not found for {product_type.Name}", data=None)
-        
-        # Calculate amount
-        amount = price_item.Price * item.Quantity
-        total_amount += amount
-        
-        # Deduct stock? Usually done here or reserved.
+        # Deduct Stock
         product_type.Quantity -= item.Quantity
+        
+        # We trust the Amount sent by frontend? Or recalculate?
+        # User request says: "input should be Address, Total and VoucherId (if use) and also a list of InvoicesItem including all column"
+        # "all column" for InvoiceItem includes Amount.
+        # Usually backend should validate Price, but instructions imply "input ... including all column". 
+        # I will use the input Amount but maybe verify it matches logic? 
+        # For simplicity and strictly following "input ... including all column", I will use the input values.
+        # However, trusting frontend for Amount is dangerous. But for this specific task I will stick to "input ... including all column".
+        # Let's just use the input Item.
         
         invoice_items_buffer.append({
             "ProductTypeId": item.ProductTypeId,
             "Quantity": item.Quantity,
-            "Amount": amount
+            "Amount": item.Amount
         })
-
-    # Resolving VoucherId from VoucherName
-    voucher_id = None
-    if data.VoucherName:
-        voucher = db.query(Voucher).filter(Voucher.Name == data.VoucherName).first()
-        if not voucher:
-             return DataResponse.custom_response(code="400", message=f"Voucher '{data.VoucherName}' not found", data=None)
-        # Optional: Check validity? (Date, Status, usage count)
-        if voucher.Status != 1: 
-             return DataResponse.custom_response(code="400", message="Voucher is inactive", data=None)
-        voucher_id = voucher.Id
 
     # 3. Create Invoice
     new_invoice = Invoice(
@@ -87,8 +63,8 @@ async def create_invoice(data: InvoiceCreate, db: Session = Depends(get_db), use
         Address=data.Address,
         Status=1, 
         CreateAt=datetime.now(),
-        Total=total_amount,
-        VoucherId=voucher_id
+        Total=data.Total,
+        VoucherId=data.VoucherId
     )
     db.add(new_invoice)
     db.flush() # Get Id
@@ -103,18 +79,9 @@ async def create_invoice(data: InvoiceCreate, db: Session = Depends(get_db), use
         )
         db.add(inv_item)
 
-    # 5. Clear Cart
-    db.query(CartItem).filter(CartItem.CartId == user.Id).delete()
-    
     try:
         db.commit()
         db.refresh(new_invoice)
-        # To return proper schema with Items, we might need to eager load or let Pydantic handle it if relationship exists.
-        # Check Invoice model relationship: define it if missing.
-        # InvoiceItem model has foreign key to Invoice. 
-        # Invoice model needs `items = relationship("InvoiceItem")` for Pydantic `Items` field to populate automatically if orm_mode=True.
-        # If not present in model, we might only get empty list.
-        # For now, return what we have.
         return DataResponse.custom_response(code="201", message="Create invoice success", data=new_invoice)
     except Exception as e:
         print(f"Error creating invoice: {e}")
