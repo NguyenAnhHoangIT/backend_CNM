@@ -10,6 +10,7 @@ class CartProductType(BaseModel):
     Name: str
     ImageUrl: Optional[str] = None
     Price: Optional[Decimal] = None
+    ProductId: int
 
     @model_validator(mode='before')
     @classmethod
