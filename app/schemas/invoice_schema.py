@@ -26,6 +26,8 @@ class InvoiceBase(BaseModel):
     CreateAt: Optional[datetime] = None
     Total: Decimal = Decimal(0)
     VoucherId: Optional[int] = None
+    PaymentIntentId: Optional[str] = None
+    Notes: Optional[str] = None
 
 class InvoiceAdminUpdate(BaseModel):
     Status: Optional[int] = None
@@ -33,8 +35,8 @@ class InvoiceAdminUpdate(BaseModel):
 
 class InvoiceCreate(BaseModel):
     Address: str
-    Total: Decimal
     VoucherId: Optional[int] = None
+    Notes: Optional[str] = None
     Items: List[InvoiceItemCreate]
 
 class Invoice(InvoiceBase):
