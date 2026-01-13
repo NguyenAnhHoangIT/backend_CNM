@@ -25,6 +25,10 @@ class InvoiceBase(BaseModel):
     Total: Decimal = Decimal(0)
     VoucherId: Optional[int] = None
 
+class InvoiceAdminUpdate(BaseModel):
+    Status: Optional[int] = None
+    Address: Optional[str] = None
+
 class InvoiceCreate(BaseModel):
     Address: str
 class InvoiceCreate(BaseModel):

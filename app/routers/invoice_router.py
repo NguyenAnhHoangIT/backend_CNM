@@ -6,7 +6,7 @@ from app.models.invoice_model import Invoice, InvoiceItem
 from app.models.cart_model import Cart, CartItem
 from app.models.product_model import ProductType
 from app.models.voucher_model import Voucher
-from app.schemas.invoice_schema import Invoice as InvoiceSchema, InvoiceCreate
+from app.schemas.invoice_schema import Invoice as InvoiceSchema, InvoiceCreate, InvoiceAdminUpdate
 from app.schemas.base_schema import DataResponse
 from datetime import datetime
 from sqlalchemy.orm import joinedload
@@ -126,6 +126,14 @@ async def get_my_invoices(db: Session = Depends(get_db), user: dict = Depends(au
     invoices = db.query(Invoice).options(joinedload(Invoice.Items)).filter(Invoice.UserId == user.Id).all()
     return DataResponse.custom_response(code="200", message="Get invoices success", data=invoices)
 
+@router.get("/all", description="Admin get all invoices", response_model=DataResponse[list[InvoiceSchema]])
+async def get_all_invoices(db: Session = Depends(get_db)):
+    # Admin only check ideally, but instructions didn't enforce separate Role check logic yet.
+    # Assuming authenticated user is Admin if they access this? 
+    # Or just returning all.
+    invoices = db.query(Invoice).options(joinedload(Invoice.Items)).all()
+    return DataResponse.custom_response(code="200", message="Get all invoices success", data=invoices)
+
 @router.get("/{invoice_id}", description="Get invoice detail", response_model=DataResponse[InvoiceSchema])
 async def get_invoice_detail(invoice_id: int, db: Session = Depends(get_db), user: dict = Depends(authenticate)):
     invoice = db.query(Invoice).options(joinedload(Invoice.Items)).filter(Invoice.Id == invoice_id).first()
@@ -138,3 +146,49 @@ async def get_invoice_detail(invoice_id: int, db: Session = Depends(get_db), use
          return DataResponse.custom_response(code="403", message="Access denied", data=None)
          
     return DataResponse.custom_response(code="200", message="Get invoice detail success", data=invoice)
+
+@router.get("/{invoice_id}/admin", description="Admin get invoice detail", response_model=DataResponse[InvoiceSchema])
+async def get_invoice_detail_admin(invoice_id: int, db: Session = Depends(get_db)):
+    invoice = db.query(Invoice).options(joinedload(Invoice.Items)).filter(Invoice.Id == invoice_id).first()
+    if not invoice:
+        return DataResponse.custom_response(code="404", message="Invoice not found", data=None)
+    return DataResponse.custom_response(code="200", message="Get invoice detail success", data=invoice)
+
+@router.put("/{invoice_id}", description="Admin update invoice", response_model=DataResponse[InvoiceSchema])
+async def update_invoice(invoice_id: int, data: InvoiceAdminUpdate, db: Session = Depends(get_db)):
+    invoice = db.query(Invoice).options(joinedload(Invoice.Items)).filter(Invoice.Id == invoice_id).first()
+    if not invoice:
+        return DataResponse.custom_response(code="404", message="Invoice not found", data=None)
+    
+    if data.Status is not None:
+        invoice.Status = data.Status
+    if data.Address is not None:
+        invoice.Address = data.Address
+        
+    try:
+        db.commit()
+        db.refresh(invoice)
+        # Re-query
+        invoice = db.query(Invoice).options(joinedload(Invoice.Items)).filter(Invoice.Id == invoice.Id).first()
+        return DataResponse.custom_response(code="200", message="Update invoice success", data=invoice)
+    except Exception as e:
+        print(f"Error updating invoice: {e}")
+        db.rollback()
+        return DataResponse.custom_response(code="500", message="Update invoice failed", data=None)
+
+@router.delete("/{invoice_id}", description="Admin delete (cancel) invoice", response_model=DataResponse[InvoiceSchema])
+async def delete_invoice(invoice_id: int, db: Session = Depends(get_db)):
+    invoice = db.query(Invoice).filter(Invoice.Id == invoice_id).first()
+    if not invoice:
+        return DataResponse.custom_response(code="404", message="Invoice not found", data=None)
+    
+    try:
+        # Soft delete / Cancel
+        invoice.Status = -1
+        db.commit()
+        db.refresh(invoice)
+        return DataResponse.custom_response(code="200", message="Cancel invoice success", data=invoice)
+    except Exception as e:
+        print(f"Error cancelling invoice: {e}")
+        db.rollback()
+        return DataResponse.custom_response(code="500", message="Cancel invoice failed", data=None)

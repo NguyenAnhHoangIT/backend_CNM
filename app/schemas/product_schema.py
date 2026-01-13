@@ -81,12 +81,12 @@ class ProductTypeCreate(BaseModel):
     Quantity: int
     ImageUrl: Optional[str] = None
     Price: Decimal
-    Number: int
+    # Number field removed
 
 class ProductType(ProductTypeBase):
     Id: int
     Price: Optional[Decimal] = None
-    Number: Optional[int] = None
+    # Number field removed
 
     @model_validator(mode='before')
     @classmethod
@@ -95,7 +95,6 @@ class ProductType(ProductTypeBase):
         if hasattr(data, 'price_item') and data.price_item:
             # Flatten fields from related object
             data.Price = data.price_item.Price
-            data.Number = data.price_item.Number
         elif isinstance(data, dict):
             # If dict (e.g. from input or testing), check for nested key (unlikely in this direction but good for robustness)
             pass

@@ -62,9 +62,9 @@ async def create_product(data: ProductCreate, db: Session = Depends(get_db), use
                 db.flush() # Flush to get db_product_type.Id
                 
                 # Create associated PriceItem (Single)
-                if pt.Price and pt.Number:
+                if pt.Price:
                     db_price_item = PriceItem(
-                        Number=pt.Number,
+                        Number=0, # Default value as requested to ignore it
                         Price=pt.Price,
                         ProductTypeId=db_product_type.Id
                     )

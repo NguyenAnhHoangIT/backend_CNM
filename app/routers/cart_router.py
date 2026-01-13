@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.db.base import get_db
 from app.middleware.authenticate import authenticate
 from app.models.cart_model import Cart, CartItem
-from app.models.product_model import ProductType
+from app.models.product_model import ProductType, PriceItem
 from app.schemas.cart_schema import Cart as CartSchema, CartCreate, CartItem as CartItemSchema, CartItemCreate
 from app.schemas.base_schema import DataResponse
 from datetime import datetime
@@ -16,15 +16,20 @@ router = APIRouter(
 
 @router.get("/me", description="Get current user's cart", response_model=DataResponse[CartSchema])
 async def get_my_cart(db: Session = Depends(get_db), user: dict = Depends(authenticate)):
-    cart = db.query(Cart).filter(Cart.UserId == user.Id).first()
-    if not cart:
-        # Create cart if not exists
-        cart = Cart(UserId=user.Id)
-        db.add(cart)
-        db.commit()
-        db.refresh(cart)
+    # Query CartItems directly using UserId as CartId
+    items = db.query(CartItem).options(
+        joinedload(CartItem.product_type)
+        .joinedload(ProductType.price_item)
+    ).filter(CartItem.CartId == user.Id).all()
     
-    return DataResponse.custom_response(code="200", message="Get cart success", data=cart)
+    # Construct response data
+    cart_data = {
+        "UserId": user.Id,
+        "items": items,
+        "CreateAt": datetime.now(), 
+    }
+    
+    return DataResponse.custom_response(code="200", message="Get cart success", data=cart_data)
 
 @router.post("", description="Add item to cart", response_model=DataResponse[CartSchema])
 async def add_to_cart(item: CartItemCreate, db: Session = Depends(get_db), user: dict = Depends(authenticate)):

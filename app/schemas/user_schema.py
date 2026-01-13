@@ -15,6 +15,22 @@ class UserCreate(UserBase):
 class UserUpdate(UserBase):
     Password: Optional[str] = None
 
+class UserAdminCreate(UserBase):
+    Password: str
+    PhoneNumber: Optional[str] = None
+    RoleId: Optional[str] = None
+    Status: int = 1
+
+class UserAdminUpdate(BaseModel):
+    FullName: Optional[str] = None
+    UserName: Optional[str] = None
+    Email: Optional[str] = None
+    Password: Optional[str] = None
+    PhoneNumber: Optional[str] = None
+    RoleId: Optional[str] = None
+    Status: Optional[int] = None
+    AvatarUrl: Optional[str] = None
+
 class UserLogin(BaseModel):
     Email: str
     Password: str
