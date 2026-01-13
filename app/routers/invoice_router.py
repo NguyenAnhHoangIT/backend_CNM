@@ -8,8 +8,13 @@ from app.models.product_model import ProductType
 from app.models.voucher_model import Voucher
 from app.schemas.invoice_schema import Invoice as InvoiceSchema, InvoiceCreate, InvoiceAdminUpdate
 from app.schemas.base_schema import DataResponse
+from app.core.config import settings
 from datetime import datetime
 from sqlalchemy.orm import joinedload
+import stripe
+
+# Configure Stripe
+stripe.api_key = settings.STRIPE_SECRET_KEY
 
 router = APIRouter(
     prefix="/invoices",
@@ -21,7 +26,41 @@ router = APIRouter(
 async def create_invoice(data: InvoiceCreate, db: Session = Depends(get_db), user: dict = Depends(authenticate)):
     # 1. Start Transaction (Implicit in Session)
     
-    # 2. Iterate Items and Validate/Deduct Stock
+    # 2. Calculate Total from Items
+    subtotal = sum(item.Amount for item in data.Items)
+    
+    # Apply Voucher if provided
+    discount = 0
+    if data.VoucherId:
+        voucher = db.query(Voucher).filter(Voucher.Id == data.VoucherId).first()
+        if not voucher:
+            return DataResponse.custom_response(code="400", message="Voucher not found", data=None)
+        if voucher.Status != 1:
+            return DataResponse.custom_response(code="400", message="Voucher is not active", data=None)
+        if voucher.Quantity <= 0:
+            return DataResponse.custom_response(code="400", message="Voucher is out of stock", data=None)
+        
+        discount = voucher.Discount
+        voucher.Quantity -= 1
+    
+    total = subtotal - discount
+    if total < 0:
+        total = 0
+    
+    # 3. Create Stripe Payment Intent
+    try:
+        payment_intent = stripe.PaymentIntent.create(
+            amount=int(total * 100),
+            currency="usd",
+            metadata={
+                "user_id": user.Id,
+                "address": data.Address
+            }
+        )
+    except stripe.error.StripeError as e:
+        return DataResponse.custom_response(code="400", message=f"Stripe error: {str(e)}", data=None)
+    
+    # 4. Iterate Items and Validate/Deduct Stock
     invoice_items_buffer = []
 
     # Import PriceItem here or at top level if needed. Ideally top level but keeping local if previously local.
@@ -57,19 +96,21 @@ async def create_invoice(data: InvoiceCreate, db: Session = Depends(get_db), use
             "Amount": item.Amount
         })
 
-    # 3. Create Invoice
+    # 5. Create Invoice
     new_invoice = Invoice(
         UserId=user.Id,
         Address=data.Address,
         Status=1, 
         CreateAt=datetime.now(),
-        Total=data.Total,
-        VoucherId=data.VoucherId
+        Total=total,
+        VoucherId=data.VoucherId,
+        PaymentIntentId=payment_intent.id,
+        Notes=data.Notes
     )
     db.add(new_invoice)
     db.flush() # Get Id
 
-    # 4. Create InvoiceItems
+    # 6. Create InvoiceItems
     for buffer in invoice_items_buffer:
         inv_item = InvoiceItem(
             InvoiceId=new_invoice.Id,
