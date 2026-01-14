@@ -5,9 +5,18 @@ from app.middleware.authenticate import authenticate
 from app.models.product_model import Category
 from app.schemas.product_schema import Category as CategorySchema, CategoryCreate, CategoryUpdate
 from app.schemas.base_schema import DataResponse
+from app.core.config import settings
 from datetime import datetime
 from typing import Optional
+import cloudinary
 import cloudinary.uploader
+
+# Configure Cloudinary
+cloudinary.config(
+    cloud_name=settings.CLOUDINARY_CLOUD_NAME,
+    api_key=settings.CLOUDINARY_API_KEY,
+    api_secret=settings.CLOUDINARY_API_SECRET
+)
 
 router = APIRouter(
     prefix="/categories",
