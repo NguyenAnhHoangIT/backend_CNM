@@ -16,6 +16,10 @@ from app.core.config import settings
 from fastapi import BackgroundTasks
 from app.utils.email import send_welcome_email
 
+from app.models.conversation_model import Conversation
+from app.models.message_model import Message
+from datetime import datetime
+
 router = APIRouter()
 
 
@@ -48,19 +52,44 @@ async def register_user(data: UserCreate, background_tasks: BackgroundTasks, db:
              user_role = UserRole(UserId=user.Id, RoleId=customer_role.Id)
              db.add(user_role)
         else:
-             # Fallback or log error? User request implies we should find it. 
-             # For now, let's assuming it exists as verified. 
-             # But if not, we might fail constraint or just not assign role?
-             # Better to raise error or print.
              print("Error: Customer role not found in DB")
-             # Returning 500 might be appropriate if role is mandatory
              raise Exception("Customer role not found")
         
+        # --- Automatic Conversation Creation with Admin ---
+        ADMIN_ID = "db0e6986-0d48-4b16-8d00-d5a95ba77f95"
+        
+        # Check if Admin exists (Optional but safer)
+        admin_user = db.query(User).filter(User.Id == ADMIN_ID).first()
+        if admin_user:
+            # Create Conversation
+            new_conversation = Conversation(
+                CustomerId=user.Id,
+                AdminId=ADMIN_ID,
+                CreatedAt=datetime.now(),
+                LastMessageAt=datetime.now()
+            )
+            db.add(new_conversation)
+            db.flush() # Flush to get Conversation ID
+
+            # Create Welcome Message
+            welcome_message = Message(
+                ConversationId=new_conversation.Id,
+                SenderId=ADMIN_ID,
+                Content="Chào mừng bạn đến với shop",
+                MessageType="text", # Assuming 'text' is the standard type based on common practices, or empty string if enum not strict? 
+                # Checking chat_router.py showed usage of data.MessageType. usually it's "text" or "image".
+                IsRead=False,
+                CreatedAt=datetime.now()
+            )
+            db.add(welcome_message)
+        else:
+            print(f"Warning: Admin with ID {ADMIN_ID} not found. Welcome conversation not created.")
+
         db.commit()
         db.refresh(user)
         
         # Send welcome email
-        background_tasks.add_task(send_welcome_email, user.Email, user.FullName)
+        background_tasks.add_task(send_welcome_email, user.Email, user.FullName) 
         
         return DataResponse.custom_response(code="201", message="Register user success", data=user)
     except Exception as e:
