@@ -129,27 +129,106 @@ async def create_product(
 
 
 @router.put("/products/{product_id}", tags=["products"], description="Update a product by id", response_model=DataResponse[ProductSchema])
-async def update_product(product_id: int, data: ProductUpdate, db: Session = Depends(get_db), user: dict = Depends(authenticate)):
+async def update_product(
+    product_id: int,
+    Name: Optional[str] = Form(None),
+    Description: Optional[str] = Form(None),
+    CategoryId: Optional[int] = Form(None),
+    Status: Optional[int] = Form(None),
+    Images: Optional[List[UploadFile]] = File(None),
+    ProductTypeNames: Optional[List[str]] = Form(None),
+    ProductTypeQuantities: Optional[List[int]] = Form(None),
+    ProductTypePrices: Optional[List[str]] = Form(None),
+    ProductTypeImages: Optional[List[UploadFile]] = File(None),
+    db: Session = Depends(get_db),
+    user: dict = Depends(authenticate)
+):
     product = db.query(Product).filter(Product.Id == product_id).first()
     if not product:
         return DataResponse.custom_response(code="404", message="Product not found", data=None)
     
-    if data.Name is not None:
-        product.Name = data.Name
-    if data.Description is not None:
-        product.Description = data.Description
-    if data.CategoryId is not None:
-        product.CategoryId = data.CategoryId
-    if data.Status is not None:
-        product.Status = data.Status
-        
     try:
+        # Update basic product fields
+        if Name is not None:
+            product.Name = Name
+        if Description is not None:
+            product.Description = Description
+        if CategoryId is not None:
+            product.CategoryId = CategoryId
+        if Status is not None:
+            product.Status = Status
+        
+        # Update Product Images if provided
+        if Images:
+            # Delete old images
+            for old_img in product.Images:
+                db.delete(old_img)
+            
+            # Upload and add new images
+            for img_file in Images:
+                upload_result = cloudinary.uploader.upload(img_file.file, folder="products")
+                image_url = upload_result.get("secure_url")
+                
+                db_image = ProductImage(
+                    Url=image_url,
+                    Description=img_file.filename or "Product image",
+                    ProductId=product.Id
+                )
+                db.add(db_image)
+        
+        # Update ProductTypes if provided
+        if ProductTypeNames and ProductTypeQuantities and ProductTypePrices and ProductTypeImages:
+            # Validate arrays have same length
+            if not (len(ProductTypeNames) == len(ProductTypeQuantities) == len(ProductTypePrices) == len(ProductTypeImages)):
+                return DataResponse.custom_response(
+                    code="400",
+                    message="All ProductType arrays must have the same length",
+                    data=None
+                )
+            
+            # Delete old product types (cascade will delete price items)
+            for old_pt in product.ProductTypes:
+                db.delete(old_pt)
+            
+            # Create new product types
+            for i in range(len(ProductTypeNames)):
+                # Upload ProductType image
+                pt_image_url = None
+                if ProductTypeImages[i]:
+                    upload_result = cloudinary.uploader.upload(ProductTypeImages[i].file, folder="product_types")
+                    pt_image_url = upload_result.get("secure_url")
+                
+                db_product_type = ProductType(
+                    Name=ProductTypeNames[i],
+                    Quantity=ProductTypeQuantities[i],
+                    ImageUrl=pt_image_url,
+                    ProductId=product.Id,
+                    Status=1
+                )
+                db.add(db_product_type)
+                db.flush()  # Get ProductType Id
+                
+                # Create PriceItem
+                db_price_item = PriceItem(
+                    Number=0,
+                    Price=ProductTypePrices[i],
+                    ProductTypeId=db_product_type.Id
+                )
+                db.add(db_price_item)
+        
         db.commit()
-        db.refresh(product)
+        
+        # Reload with relationships
+        product = db.query(Product).options(
+            joinedload(Product.ProductTypes).joinedload(ProductType.price_item),
+            joinedload(Product.Images)
+        ).filter(Product.Id == product_id).first()
+        
         return DataResponse.custom_response(code="200", message="Update product success", data=product)
     except Exception as e:
         print(f"Error: {e}")
-        return DataResponse.custom_response(code="500", message="Update product failed", data=None)
+        db.rollback()
+        return DataResponse.custom_response(code="500", message=f"Update product failed: {str(e)}", data=None)
 
 @router.delete("/products/{product_id}", tags=["products"], description="Delete a product by id", response_model=DataResponse[ProductSchema])
 def delete_product(product_id: int, db: Session = Depends(get_db), user: dict = Depends(authenticate)):
