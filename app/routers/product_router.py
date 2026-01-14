@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, UploadFile, Form
 from app.middleware.authenticate import authenticate
 from app.db.base import get_db
 from app.db.base import get_db
@@ -6,7 +6,19 @@ from sqlalchemy.orm import Session, joinedload
 from app.models.product_model import Product, Category, ProductImage, ProductType, PriceItem
 from app.schemas.product_schema import Product as ProductSchema, ProductCreate, ProductUpdate
 from app.schemas.base_schema import DataResponse
+from app.core.config import settings
 from datetime import datetime
+from typing import List, Optional
+import cloudinary
+import cloudinary.uploader
+import json
+
+# Configure Cloudinary
+cloudinary.config(
+    cloud_name=settings.CLOUDINARY_CLOUD_NAME,
+    api_key=settings.CLOUDINARY_API_KEY,
+    api_secret=settings.CLOUDINARY_API_SECRET
+)
 
 router = APIRouter()
 
@@ -27,55 +39,92 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
     return DataResponse.custom_response(code="200", message="Get product by id", data=product)
 
 @router.post("/products", tags=["products"], description="Create a new product", response_model=DataResponse[ProductSchema])
-async def create_product(data: ProductCreate, db: Session = Depends(get_db), user: dict = Depends(authenticate)):
-    # Accessing PascalCase fields from data
-    db_product = Product(
-        Name=data.Name,
-        Description=data.Description,
-        CreateAt=datetime.now(), # or data.CreateAt if passed
-        CategoryId=data.CategoryId,
-        Status=data.Status if data.Status else 1
-    )
+async def create_product(
+    Name: str = Form(...),
+    Description: Optional[str] = Form(None),
+    CategoryId: int = Form(...),
+    Status: int = Form(1),
+    Images: List[UploadFile] = File(...),
+    ProductTypeNames: List[str] = Form(...),
+    ProductTypeQuantities: List[int] = Form(...),
+    ProductTypePrices: List[str] = Form(...),
+    ProductTypeImages: List[UploadFile] = File(...),
+    db: Session = Depends(get_db),
+    user: dict = Depends(authenticate)
+):
     try:
+        # Validate all ProductType arrays have same length
+        if not (len(ProductTypeNames) == len(ProductTypeQuantities) == len(ProductTypePrices) == len(ProductTypeImages)):
+            return DataResponse.custom_response(
+                code="400", 
+                message="All ProductType arrays must have the same length", 
+                data=None
+            )
+        
+        # Create Product
+        db_product = Product(
+            Name=Name,
+            Description=Description or "",
+            CreateAt=datetime.now(),
+            CategoryId=CategoryId,
+            Status=Status
+        )
         db.add(db_product)
-        db.flush() # Flush to get db_product.Id
+        db.flush()  # Get product Id
 
-        if data.Images:
-            for img in data.Images:
+        # Upload and create Product Images
+        if Images:
+            for img_file in Images:
+                upload_result = cloudinary.uploader.upload(img_file.file, folder="products")
+                image_url = upload_result.get("secure_url")
+                
                 db_image = ProductImage(
-                    Url=img.Url,
-                    Description=img.Description,
+                    Url=image_url,
+                    Description=img_file.filename or "Product image",
                     ProductId=db_product.Id
                 )
                 db.add(db_image)
         
-        if data.ProductTypes:
-            for pt in data.ProductTypes:
-                db_product_type = ProductType(
-                    Name=pt.Name,
-                    Quantity=pt.Quantity,
-                    ImageUrl=pt.ImageUrl,
-                    ProductId=db_product.Id,
-                    Status=1 # Default status
-                )
-                db.add(db_product_type)
-                db.flush() # Flush to get db_product_type.Id
-                
-                # Create associated PriceItem (Single)
-                if pt.Price:
-                    db_price_item = PriceItem(
-                        Number=0, # Default value as requested to ignore it
-                        Price=pt.Price,
-                        ProductTypeId=db_product_type.Id
-                    )
-                    db.add(db_price_item)
+        # Create ProductTypes
+        for i in range(len(ProductTypeNames)):
+            # Upload ProductType image
+            pt_image_url = None
+            if ProductTypeImages[i]:
+                upload_result = cloudinary.uploader.upload(ProductTypeImages[i].file, folder="product_types")
+                pt_image_url = upload_result.get("secure_url")
+            
+            db_product_type = ProductType(
+                Name=ProductTypeNames[i],
+                Quantity=ProductTypeQuantities[i],
+                ImageUrl=pt_image_url,
+                ProductId=db_product.Id,
+                Status=1
+            )
+            db.add(db_product_type)
+            db.flush()  # Get ProductType Id
+            
+            # Create PriceItem
+            db_price_item = PriceItem(
+                Number=0,
+                Price=ProductTypePrices[i],
+                ProductTypeId=db_product_type.Id
+            )
+            db.add(db_price_item)
 
         db.commit()
         db.refresh(db_product)
-        return DataResponse.custom_response(code="201", message="Create product success", data=db_product)
+        
+        # Reload with relationships
+        product = db.query(Product).options(
+            joinedload(Product.ProductTypes).joinedload(ProductType.price_item),
+            joinedload(Product.Images)
+        ).filter(Product.Id == db_product.Id).first()
+        
+        return DataResponse.custom_response(code="201", message="Create product success", data=product)
     except Exception as e:
         print(f"Error: {e}")
-        return DataResponse.custom_response(code="500", message="Create product failed", data=None)
+        db.rollback()
+        return DataResponse.custom_response(code="500", message=f"Create product failed: {str(e)}", data=None)
 
 
 
