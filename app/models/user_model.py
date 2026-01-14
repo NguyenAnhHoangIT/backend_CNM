@@ -30,7 +30,7 @@ class User(Base):
     Roles = relationship("Role", secondary="UserRoles", back_populates="users")
     
     # helper for UserRole model access if needed
-    user_roles = relationship("UserRole", back_populates="user")
+    user_roles = relationship("UserRole", back_populates="user", overlaps="Roles")
     
 class Role(Base):
     __tablename__ = "Roles"
@@ -40,7 +40,7 @@ class Role(Base):
     NormalizedName = Column(String(256), nullable=True)
     ConcurrencyStamp = Column(Text, nullable=True)
     
-    users = relationship("User", secondary="UserRoles", back_populates="Roles")
+    users = relationship("User", secondary="UserRoles", back_populates="Roles", overlaps="user_roles")
 
 class UserClaim(Base):
     __tablename__ = "UserClaims"
@@ -58,8 +58,8 @@ class UserRole(Base):
     UserId = Column(String(255), ForeignKey("Users.Id", ondelete='CASCADE'), primary_key=True)
     RoleId = Column(String(255), ForeignKey("Roles.Id", ondelete='CASCADE'), primary_key=True)
     
-    user = relationship("User", back_populates="user_roles")
-    role = relationship("Role")
+    user = relationship("User", back_populates="user_roles", overlaps="Roles,users")
+    role = relationship("Role", overlaps="Roles,users")
 
 class UserToken(Base):
     __tablename__ = "UserTokens"

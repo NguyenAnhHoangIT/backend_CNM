@@ -12,11 +12,15 @@ from typing import Optional
 import cloudinary.uploader
 from app.core.config import settings
 
+from app.core.config import settings
+from fastapi import BackgroundTasks
+from app.utils.email import send_welcome_email
+
 router = APIRouter()
 
 
 @router.post("/register", tags=["users"], description="Register a new user", response_model=DataResponse[UserSchema])
-async def register_user(data: UserCreate, db: Session = Depends(get_db)):
+async def register_user(data: UserCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.Email == data.Email).first()
     if existing:
         return DataResponse.custom_response(code="400", message="Email already exists", data=None)
@@ -54,6 +58,10 @@ async def register_user(data: UserCreate, db: Session = Depends(get_db)):
         
         db.commit()
         db.refresh(user)
+        
+        # Send welcome email
+        background_tasks.add_task(send_welcome_email, user.Email, user.FullName)
+        
         return DataResponse.custom_response(code="201", message="Register user success", data=user)
     except Exception as e:
         print(e)
@@ -151,7 +159,7 @@ async def get_all_users(db: Session = Depends(get_db)):
     return DataResponse.custom_response(code="200", message="Get all users success", data=users)
 
 @router.post("/users", tags=["users"], description="Admin create user", response_model=DataResponse[UserSchema], dependencies=[Depends(authenticate)])
-async def admin_create_user(data: UserAdminCreate, db: Session = Depends(get_db)):
+async def admin_create_user(data: UserAdminCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.Email == data.Email).first()
     if existing:
         return DataResponse.custom_response(code="400", message="Email already exists", data=None)
@@ -191,6 +199,10 @@ async def admin_create_user(data: UserAdminCreate, db: Session = Depends(get_db)
         db.refresh(user)
         # Re-query with roles
         user = db.query(User).options(joinedload(User.Roles)).filter(User.Id == user.Id).first()
+        
+        # Send welcome email
+        background_tasks.add_task(send_welcome_email, user.Email, user.FullName)
+        
         return DataResponse.custom_response(code="201", message="Create user success", data=user)
     except Exception as e:
         print(e)
