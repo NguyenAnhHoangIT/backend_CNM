@@ -36,6 +36,7 @@ class InvoiceBase(BaseModel):
 class InvoiceAdminUpdate(BaseModel):
     Status: Optional[int] = None
     Address: Optional[str] = None
+    Notes: Optional[str] = None
 
 class InvoiceCreate(BaseModel):
     Address: str

@@ -211,6 +211,8 @@ async def update_invoice(invoice_id: int, data: InvoiceAdminUpdate, db: Session 
         invoice.Status = data.Status
     if data.Address is not None:
         invoice.Address = data.Address
+    if data.Notes is not None:
+        invoice.Notes = data.Notes
         
     try:
         db.commit()
