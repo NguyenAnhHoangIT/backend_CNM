@@ -16,6 +16,10 @@ class InvoiceItemCreate(BaseModel):
 
 class InvoiceItem(InvoiceItemBase):
     InvoiceId: int
+    ProductName: Optional[str] = None
+    ProductTypeName: Optional[str] = None
+    ProductTypeImageUrl: Optional[str] = None
+    
     class Config:
         from_attributes = True
 
